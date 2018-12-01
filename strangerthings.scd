@@ -54,10 +54,13 @@ SynthDef(\strangetwinkle, {
 }).add;
 
 SynthDef(\strangeFilter, {
-	arg in, out=0, loFreq=500, hiFreq=10000, riseTime=20, fallTime=20, curve=4,
+	arg in, out=0, loFreq=500, hiFreq=10000, nextLoFreq=500, endStart=400, endFinish=8000,
+	riseTime=20, hiStayTime=10, fallTime=20, loStayTime=10, endRise=4,
+	curve=4,
 	fxout=0, fxamp=0.0, amp=1.0;
 	var sig, env;
-	env = EnvGen.kr(Env([loFreq, hiFreq, loFreq], [riseTime, fallTime], [curve, curve.neg]));
+	env = EnvGen.kr(Env([loFreq, hiFreq, hiFreq, nextLoFreq, nextLoFreq, endStart, endFinish],
+		[riseTime, hiStayTime, fallTime, loStayTime, 0, endRise], [curve, curve.neg, curve, curve, curve]));
 	sig = LPF.ar(In.ar(in, 2), env);
 	Out.ar(out, sig * amp);
 	Out.ar(fxout, sig * fxamp);
@@ -70,6 +73,29 @@ SynthDef(\strangeverb, {
 	sig = FreeVerb2.ar(sig[0], sig[1], 1.0, room, damp);
 	Out.ar(out, sig);
 }).add;
+
+SynthDef(\strangestab, {
+	arg freq=440, amp=0.2, sawamp=1.0, sinamp=0.7, blipamp=0.3, squareamp=0.5, pw=0.5,
+	atk=0.01, rel=0.5, out=0, detune=0.01, cf=2.0,
+	fxout=0, fxamp=0.0, nharm=4;
+	var sig, sawsig, sinsig, blipsig, squaresig, env, altfreq;
+	altfreq = exprand(1 - detune, 1 + detune) * freq;
+	sawsig = LFSaw.ar([freq, altfreq]) * sawamp;
+	sinsig = SinOsc.ar([freq, altfreq]) * sinamp;
+	blipsig = Blip.ar([freq / 2, altfreq / 2], nharm) * blipamp;
+	squaresig = LFPulse.ar([freq, altfreq], 0, pw) * squareamp;
+	env = EnvGen.kr(Env.perc(atk,rel), doneAction:2);
+	sig = (sawsig + sinsig + blipsig + squaresig) * env;
+	sig = LPF.ar(sig, cf * freq);
+	Out.ar(out, sig * amp);
+	Out.ar(fxout, sig * fxamp);
+}).add;
+)
+
+(
+Synth(\strangestab, [\freq, 52.midicps, \atk, 0.02, \rel, 3.0, \blipamp, 0.2, \sinamp, 0.5, \sawamp, 0.9,
+	\squareamp, 0.1, \nharm, 8, \pw, 0.2, \cf, 6.0
+]);
 )
 
 Synth(\strangeverb, [\in, ~reverbBus]);
@@ -142,6 +168,14 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 	\in, ~filterBus,
 	\loFreq, 600,
 	\hiFreq, 4000,
+	\nextLoFreq, 800,
+	\endStart, 1000,
+	\endFinish, 2500,
+	\riseTime, 12 * ~measure,
+	\hiStayTime, 2 * ~measure,
+	\fallTime, 12 * ~measure,
+	\loStayTime, 4 * ~measure,
+	\endRise, 3 * ~measure,
 	\fxout, ~reverbBus,
 	\fxamp, 0.9,
 	\amp, 1.0,
@@ -150,7 +184,9 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 
 ~stranger = Pbind(
 	\instrument, \strange,
-	\midinote, Pseq([Rest, Pseq([48, 52, 55, 59, 60, 59, 55, 52], inf)]),
+	\midinote, Pseq([Rest, Pseq([48, 52, 55, 59, 60, 59, 55, 52], 30),
+		Pseq([36, 40, 43, 47, 48, 47, 43, 40], 3)
+	]),
 	\dur, Pseq([~introtime, Pseq([~eighthnote], inf)]),
 	\atk, 0.012,
 	\rel, 0.5,
@@ -165,12 +201,31 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 
 ~strangerkick = Pbind(
 	\instrument, \strangekick,
-	\freq, Pseq([Rest, Pseq([75, 75, Pseq([Rest], 2)], inf)]),
+	\freq, Pseq([Rest, Pseq([75, 75, Pseq([Rest], 2)], 66), Pseq([75, 75, Pseq([Rest], 6)], 4)]),
 	\rel, 0.8,
 	\dur, Pseq([~introtime, Pseq([~eighthnote], inf)]),
-	\amp, Pseq([Rest, Pseq([0.25, 0.15], inf)]),
+	\amp, Pseq([Rest, Pseq([0.3, 0.2], inf)]),
 	\fxout, ~reverbBus,
-	\fxamp, 0.1,
+	\fxamp, 0.05,
+);
+
+~strangerstab = Pbind(
+	\instrument, \strangestab,
+	\dur, Pseq([~introtime, 4, 4, 3.5, 0.5, 3.5, 0.5, 3.0, 3/8, 3/8, 1/4 + 4, 2, 4, 3, 2])
+	* Pseq([1, Pseq([~measure], inf)]),
+	\midinote, Pseq([Rest, Rest, 52, 48, 50, 52, 50, 48, 50, 48, 47, Rest, 47, 52, 52]) - 12,
+	\atk, 0.01,
+	\rel, Pkey(\dur) ** 0.45 * 4.0,
+	\blipamp, 0.0,
+	\sinamp, 0.6,
+	\sawamp, 0.7,
+	\squareamp, 0.0,
+	\nharm, 4,
+	\pw, 0.5,
+	\fxout, ~reverbBus,
+	\fxamp, 0.2,
+	\amp, Pseq([0, 0, 0.15, Pseq([0.25], 9), Pseq([0.2], 2), 0.13]),
+	\cf, Pseq([10, 10, 12, 14, 14, 14, 20, 20, 14, 14, 14, 14, 12, 12, 9])
 );
 
 Ppar([
@@ -179,7 +234,8 @@ Ppar([
 	~strangertwinkle,
 	~strangerfilter,
 	~stranger,
-	~strangerkick
+	~strangerkick,
+	~strangerstab
 ]).play;
 )
 
