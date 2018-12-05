@@ -90,6 +90,57 @@ SynthDef(\strangestab, {
 	Out.ar(out, sig * amp);
 	Out.ar(fxout, sig * fxamp);
 }).add;
+
+SynthDef(\strangeswell, {
+	arg freq=440, amp=0.2, sawamp=1.0, sinamp=0.7, squareamp=0.5, pw=0.5,
+	atk=2.0, rel=0.5,
+	cfstart=0.5, cfpeak=4.0, cfend=0.5, kt=1.0, rq=1.0,
+	fatk=2.0, flegato=1.0,
+	out=0, detune=0.01, cf=2.0,
+	fxout=0, fxamp=0.0;
+	var sig, sawsig, sinsig, squaresig, env, altfreq, fenv;
+	altfreq = exprand(1 - detune, 1 + detune) * freq;
+	sawsig = LFSaw.ar([freq, altfreq], [0, 0]) * sawamp;
+	sinsig = SinOsc.ar([freq, altfreq], [0, 0]) * sinamp;
+	squaresig = LFPulse.ar([freq, altfreq], [0, 0], pw) * squareamp;
+	sig = sawsig + sinsig + squaresig;
+	fenv = EnvGen.kr(Env(
+		[cfstart.pow(kt) * freq, cfpeak.pow(kt) * freq, cfend.pow(kt) * freq],
+		[fatk,flegato * rel]
+	));
+	sig = BPF.ar(sig, fenv, rq);
+	env = EnvGen.kr(Env.perc(atk,rel), doneAction:2);
+	sig = sig * env;
+	Out.ar(out, sig * amp);
+	Out.ar(fxout, sig * fxamp);
+}).add;
+)
+
+// sandbox:
+(
+Synth(\strangeswell, [\freq, 64.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
+	\sawamp, 0.1, \squareamp, 0.9, \sinamp, 0.5, \pw, 0.1,
+	\cfstart, 1.5, \cfpeak, 8.0, \cfend, 0.2,
+	\fatk, 3.0, \atk, 3.0
+]);
+
+Synth(\strangeswell, [\freq, 60.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
+	\sawamp, 0.1, \squareamp, 0.9, \sinamp, 0.5, \pw, 0.1,
+	\cfstart, 1.5, \cfpeak, 8.0, \cfend, 0.2,
+	\fatk, 3.0, \atk, 3.0
+]);
+
+Synth(\strangeswell, [\freq, 67.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
+	\sawamp, 0.1, \squareamp, 0.9, \sinamp, 0.5, \pw, 0.1,
+	\cfstart, 1.5, \cfpeak, 8.0, \cfend, 0.2,
+	\fatk, 3.0, \atk, 3.0
+]);
+
+Synth(\strangeswell, [\freq, 71.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
+	\sawamp, 0.1, \squareamp, 0.9, \sinamp, 0.5, \pw, 0.1,
+	\cfstart, 1.5, \cfpeak, 8.0, \cfend, 0.2,
+	\fatk, 3.0, \atk, 3.0
+]);
 )
 
 (
@@ -99,13 +150,16 @@ Synth(\strangestab, [\freq, 52.midicps, \atk, 0.02, \rel, 3.0, \blipamp, 0.2, \s
 )
 
 Synth(\strangeverb, [\in, ~reverbBus]);
+
 Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 
+// fx busses:
 (
 ~filterBus = Bus.audio(s, 2);
 ~reverbBus = Bus.audio(s, 2);
 )
 
+// time and tempo data:
 (
 ~tempo = 175; //bpm
 ~quarternote = 60 / ~tempo;
@@ -115,6 +169,7 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 ~songlength = 300.0;
 )
 
+// patterns:
 (
 ~strangerverb = Pbind(
 	\instrument, \strangeverb,
@@ -228,6 +283,26 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 	\cf, Pseq([10, 10, 12, 14, 14, 14, 20, 20, 14, 14, 14, 14, 12, 12, 9])
 );
 
+~strangerswell = Pbind(
+	\instrument, \strangeswell,
+	\dur, Pseq([~introtime, 4, 4]) * Pseq([1, Pseq([~measure], inf)]),
+	\midinote, Pseq([Rest, Rest, [60, 64, 67, 71]]),
+	\rq, 0.5,
+	\detune, 0.02,
+	\sawamp, 0.1,
+	\squareamp, 0.9,
+	\sinamp, 0.5,
+	\pw, 0.1,
+	\cfstart, 0.25,
+	\cfpeak, 4.0,
+	\cfend, 0.25,
+	\fatk, 4 * ~measure,
+	\atk, 4 * ~measure,
+	\amp, 0.07,
+	\fxamp, 0.25,
+	\fxout, ~reverbBus
+);
+
 Ppar([
 	~strangerverb,
 	~strangerpad,
@@ -235,7 +310,8 @@ Ppar([
 	~strangerfilter,
 	~stranger,
 	~strangerkick,
-	~strangerstab
+	~strangerstab,
+	~strangerswell
 ]).play;
 )
 
