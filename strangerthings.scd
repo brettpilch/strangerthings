@@ -15,12 +15,16 @@ SynthDef(\strange, {
 
 SynthDef(\strangekick, {
 	arg freq=100, atk=0.00001, rel=0.2, curve=(-4), amp=0.2, out=0, fxout=0, fxamp=0.0;
-	var sig, sig2, env;
+	var sig, sig2, noisig, noisenv, env;
 	sig = LFCub.ar(EnvGen.kr(Env([freq, freq, freq / 2], [atk, rel], curve: [curve, curve])));
 	sig2 = LFCub.ar(EnvGen.kr(Env([freq * 2, freq * 2, freq], [atk, rel], curve: [curve, curve])));
+	noisig = BPF.ar(PinkNoise.ar(0.7), 800, 1);
+	noisenv = EnvGen.kr(Env.perc(atk, rel / 10, curve: curve));
+	noisig = noisig * noisenv;
 	sig = sig + sig2;
 	env = EnvGen.kr(Env.perc(atk, rel, curve: curve), doneAction: 2);
 	sig = sig * env;
+	sig = sig + noisig;
 	Out.ar(out, sig!2 * amp);
 	Out.ar(fxout, sig!2 * fxamp);
 }).add;
@@ -114,9 +118,38 @@ SynthDef(\strangeswell, {
 	Out.ar(out, sig * amp);
 	Out.ar(fxout, sig * fxamp);
 }).add;
+
+SynthDef(\strangesplash, {
+	arg freq=440, amp=0.2, sawamp=1.0, sinamp=0.7, blipamp=0.3, nharm=4, squareamp=0.5, pw=0.5,
+	noisamp=0.5, cfstart=400, cfpeak=2000, cfend=400, cfatk=0.01, cfrel=1.0, rq=1.0,
+	atk=0.01, rel=1.0, out=0, detune=0.01,
+	fxout=0, fxamp=0.0;
+	var sig, sawsig, sinsig, blipsig, squaresig, noisig, env, fenv, altfreq;
+	altfreq = exprand(1 - detune, 1 + detune) * freq;
+	sawsig = LFSaw.ar([freq, altfreq]) * sawamp;
+	sinsig = SinOsc.ar([freq, altfreq]) * sinamp;
+	blipsig = Blip.ar([freq / 2, altfreq / 2], nharm) * blipamp;
+	squaresig = LFPulse.ar([freq, altfreq], 0, pw) * squareamp;
+	noisig = WhiteNoise.ar(noisamp);
+	env = EnvGen.kr(Env.perc(atk,rel), doneAction:2);
+	sig = (sawsig + sinsig + blipsig + squaresig + noisig);
+	fenv = EnvGen.kr(Env([cfstart, cfpeak, cfend], [cfatk, cfrel], [1, (-5)]));
+	sig = HPF.ar(sig, fenv) + BPF.ar(sig, fenv, rq);
+	sig = sig * env;
+	Out.ar(out, sig * amp);
+	Out.ar(fxout, sig * fxamp);
+}).add;
 )
 
 // sandbox:
+(
+Synth(\strangesplash, [\freq, 52.midicps, \atk, 0.01, \rel, 3.0, \blipamp, 0.9, \sinamp, 0.0, \sawamp, 0.6,
+	\squareamp, 0.0, \nharm, 40, \pw, 0.2, \cfstart, 5000, \cfpeak, 15000, \cfend, 5000,
+	\cfatk, 0.01, \cfrel, 4.0,
+	\amp, 0.5, \noisamp, 0.2, \rq, 0.2
+]);
+)
+
 (
 Synth(\strangeswell, [\freq, 64.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
 	\sawamp, 0.1, \squareamp, 0.9, \sinamp, 0.5, \pw, 0.1,
@@ -151,7 +184,7 @@ Synth(\strangestab, [\freq, 52.midicps, \atk, 0.02, \rel, 3.0, \blipamp, 0.2, \s
 
 Synth(\strangeverb, [\in, ~reverbBus]);
 
-Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
+Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.05]);
 
 // fx busses:
 (
@@ -303,6 +336,29 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.9]);
 	\fxout, ~reverbBus
 );
 
+~strangersplash = Pbind(
+	\instrument, \strangesplash,
+	\dur, Pseq([~introtime, 8, 4]) * Pseq([1, Pseq([~measure], inf)]),
+	\midinote, Pseq([Rest, Rest, 52]),
+	\atk, 0.01,
+	\rel, 3.0,
+	\blipamp, 0.9,
+	\sinamp, 0.0,
+	\sawamp, 0.6,
+	\squareamp, 0.0,
+	\nharm, 40,
+	\cfstart, 5000,
+	\cfpeak, 15000,
+	\cfend, 5000,
+	\cfatk, 0.01,
+	\cfrel, 4.0,
+	\amp, 0.3,
+	\noisamp, 0.2,
+	\rq, 0.2,
+	\fxamp, 0.25,
+	\fxout, ~reverbBus
+);
+
 Ppar([
 	~strangerverb,
 	~strangerpad,
@@ -311,7 +367,8 @@ Ppar([
 	~stranger,
 	~strangerkick,
 	~strangerstab,
-	~strangerswell
+	~strangerswell,
+	~strangersplash
 ]).play;
 )
 
