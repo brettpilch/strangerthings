@@ -122,7 +122,7 @@ SynthDef(\strangeswell, {
 SynthDef(\strangesplash, {
 	arg freq=440, amp=0.2, sawamp=1.0, sinamp=0.7, blipamp=0.3, nharm=4, squareamp=0.5, pw=0.5,
 	noisamp=0.5, cfstart=400, cfpeak=2000, cfend=400, cfatk=0.01, cfrel=1.0, rq=1.0,
-	atk=0.01, rel=1.0, out=0, detune=0.01,
+	atk=0.01, rel=1.0, out=0, detune=0.01, hpfamp=1.0, bpfamp=1.0,
 	fxout=0, fxamp=0.0;
 	var sig, sawsig, sinsig, blipsig, squaresig, noisig, env, fenv, altfreq;
 	altfreq = exprand(1 - detune, 1 + detune) * freq;
@@ -134,7 +134,7 @@ SynthDef(\strangesplash, {
 	env = EnvGen.kr(Env.perc(atk,rel), doneAction:2);
 	sig = (sawsig + sinsig + blipsig + squaresig + noisig);
 	fenv = EnvGen.kr(Env([cfstart, cfpeak, cfend], [cfatk, cfrel], [1, (-5)]));
-	sig = HPF.ar(sig, fenv) + BPF.ar(sig, fenv, rq);
+	sig = (HPF.ar(sig, fenv) * hpfamp) + (BPF.ar(sig, fenv, rq) * bpfamp);
 	sig = sig * env;
 	Out.ar(out, sig * amp);
 	Out.ar(fxout, sig * fxamp);
@@ -143,10 +143,10 @@ SynthDef(\strangesplash, {
 
 // sandbox:
 (
-Synth(\strangesplash, [\freq, 52.midicps, \atk, 0.01, \rel, 3.0, \blipamp, 0.9, \sinamp, 0.0, \sawamp, 0.6,
-	\squareamp, 0.0, \nharm, 40, \pw, 0.2, \cfstart, 5000, \cfpeak, 15000, \cfend, 5000,
+Synth(\strangesplash, [\freq, 52.midicps, \atk, 0.01, \rel, 3.0, \blipamp, 0.0, \sinamp, 0.0, \sawamp, 0.6,
+	\squareamp, 0.0, \nharm, 40, \pw, 0.2, \cfstart, 200, \cfpeak, 10000, \cfend, 200,
 	\cfatk, 0.01, \cfrel, 4.0,
-	\amp, 0.5, \noisamp, 0.2, \rq, 0.2
+	\amp, 0.5, \noisamp, 0.0, \rq, 1.0, \hpfamp, 0
 ]);
 )
 
@@ -177,8 +177,8 @@ Synth(\strangeswell, [\freq, 71.midicps, \rq, 0.1, \amp, 0.2, \detune, 0.01,
 )
 
 (
-Synth(\strangestab, [\freq, 52.midicps, \atk, 0.02, \rel, 3.0, \blipamp, 0.2, \sinamp, 0.5, \sawamp, 0.9,
-	\squareamp, 0.1, \nharm, 8, \pw, 0.2, \cf, 6.0
+Synth(\strangestab, [\freq, 52.midicps, \atk, 0.02, \rel, 3.0, \blipamp, 0.2, \sinamp, 0.1, \sawamp, 0.9,
+	\squareamp, 0.1, \nharm, 16, \pw, 0.5, \cf, 10.0
 ]);
 )
 
@@ -359,6 +359,30 @@ Synth(\strangekick, [\fxout, ~reverbBus, \fxamp, 0.05]);
 	\fxout, ~reverbBus
 );
 
+~strangeroffset = Pbind(
+	\instrument, \strangesplash,
+	\dur, Pseq([~introtime, 8.5, 4]) * Pseq([1, Pseq([~measure], inf)]),
+	\midinote, Pseq([Rest, Rest, 52]),
+	\atk, 0.03,
+	\rel, 8.0,
+	\blipamp, 0.0,
+	\sinamp, 0.0,
+	\sawamp, 0.6,
+	\squareamp, 0.0,
+	\nharm, 20,
+	\cfstart, 200,
+	\cfpeak, 10000,
+	\cfend, 200,
+	\cfatk, 0.03,
+	\cfrel, 8.0,
+	\amp, 0.2,
+	\noisamp, 0.0,
+	\rq, 1.0,
+	\hpfamp, 0.0,
+	\fxamp, 0.25,
+	\fxout, ~reverbBus
+);
+
 Ppar([
 	~strangerverb,
 	~strangerpad,
@@ -368,7 +392,8 @@ Ppar([
 	~strangerkick,
 	~strangerstab,
 	~strangerswell,
-	~strangersplash
+	~strangersplash,
+	~strangeroffset
 ]).play;
 )
 
